@@ -4,7 +4,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace HMS.Controllers
 {
@@ -54,7 +55,6 @@ namespace HMS.Controllers
         {
             if (ModelState.IsValid)
             {
-                // Ensure ApplicationUserId is linked to currently logged-in user (if needed)
                 var currentUser = await _userManager.GetUserAsync(User);
                 model.ApplicationUserId = currentUser?.Id;
 
@@ -123,6 +123,45 @@ namespace HMS.Controllers
                 await _context.SaveChangesAsync();
             }
             return RedirectToAction(nameof(Index));
+        }
+
+        // GET: View Cases Based on Specialization
+        public async Task<IActionResult> SpecializationCases()
+        {
+            var doctor = await _userManager.GetUserAsync(User);
+            if (doctor == null || doctor.Role != "Doctor") return Forbid();
+
+            // Get cases related to the doctor's specialization
+            var cases = await _context.Cases
+                .Where(c => c.DoctorId == doctor.Id)  // Assuming the doctor handles cases for themselves
+                .Include(c => c.Patient)
+                .ToListAsync();
+
+            return View(cases);
+        }
+
+        // POST: Add a Comment or Prescription to a Case
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddDoctorNote(int id, string comment, string prescription, Status status)
+        {
+            var doctor = await _userManager.GetUserAsync(User);
+            if (doctor == null || doctor.Role != "Doctor") return Forbid();
+
+            var caseToUpdate = await _context.Cases.FindAsync(id);
+            if (caseToUpdate != null)
+            {
+                // Update the doctor comments and prescribed medicines directly on the Case model
+                caseToUpdate.DoctorComments = comment;
+                caseToUpdate.PrescribedMedicines = prescription;
+                caseToUpdate.Status = status;  // You can also update the status if needed
+                caseToUpdate.ReportUpdatedAt = DateTime.UtcNow;
+
+                _context.Update(caseToUpdate);
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction(nameof(SpecializationCases));
         }
     }
 }

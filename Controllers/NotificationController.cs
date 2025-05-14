@@ -1,19 +1,19 @@
-﻿using HMS.Data;
-using HMS.Models;
+﻿using HMS.Models;
+using HMS.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using System.Threading.Tasks;
 
 namespace HMS.Controllers
 {
     public class NotificationController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly NotificationService _notificationService;
         private readonly UserManager<ApplicationUser> _userManager;
 
-        public NotificationController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public NotificationController(NotificationService notificationService, UserManager<ApplicationUser> userManager)
         {
-            _context = context;
+            _notificationService = notificationService;
             _userManager = userManager;
         }
 
@@ -21,11 +21,10 @@ namespace HMS.Controllers
         public async Task<IActionResult> Index()
         {
             var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+                return Unauthorized();
 
-            var notifications = await _context.Notifications
-                .Where(n => n.UserId == currentUser.Id)
-                .OrderByDescending(n => n.CreatedAt)
-                .ToListAsync();
+            var notifications = await _notificationService.GetAllNotificationsAsync(currentUser.Id);
 
             return View(notifications);
         }
@@ -34,17 +33,11 @@ namespace HMS.Controllers
         [HttpPost]
         public async Task<IActionResult> MarkAsRead(int id)
         {
-            var notification = await _context.Notifications.FindAsync(id);
-            if (notification == null)
-                return NotFound();
-
-            notification.IsRead = true;
-            await _context.SaveChangesAsync();
-
+            await _notificationService.MarkAsReadAsync(id);
             return RedirectToAction(nameof(Index));
         }
 
-        // OPTIONAL: Create a new notification (e.g. by Admin or Doctor)
+        // POST: Create a new notification
         [HttpPost]
         public async Task<IActionResult> Create(string userId, string title, string message)
         {
@@ -60,9 +53,7 @@ namespace HMS.Controllers
                 IsRead = false
             };
 
-            _context.Notifications.Add(newNotification);
-            await _context.SaveChangesAsync();
-
+            await _notificationService.CreateNotificationAsync(newNotification);
             return Ok("Notification sent.");
         }
     }
