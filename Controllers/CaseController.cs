@@ -1,11 +1,13 @@
 ﻿using HMS.Data;
 using HMS.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace HMS.Controllers
 {
+    [Authorize(Roles = "Patient")]
     public class CaseController : Controller
     {
         private readonly ApplicationDbContext _context;
