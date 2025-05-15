@@ -7,7 +7,7 @@
         public string LastName { get; set; }
         public string ApplicationUserId { get; set; } // Foreign key
 
-
+            
         public ApplicationUser User { get; set; }
 
         public string Specialization { get; set; }

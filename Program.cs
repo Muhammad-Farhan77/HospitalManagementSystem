@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using HMS.Data;
 using HMS.Models;
 using Microsoft.AspNetCore.Identity;
+using HMS.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +25,13 @@ builder.Services.AddAuthorization(options =>
 
 // Add controllers with views
 builder.Services.AddControllersWithViews();
+builder.Services.AddScoped<IApplicationUserService, ApplicationUserService>();
+builder.Services.AddScoped<ICaseService, CaseService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
+builder.Services.AddScoped<IDoctorService, DoctorService>();
+builder.Services.AddScoped<IPatientService, PatientService>();
+
 
 var app = builder.Build();
 

@@ -30,6 +30,19 @@ namespace HMS.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            // ✅ Doctor -> ApplicationUser
+            modelBuilder.Entity<Doctor>()
+                .HasOne(d => d.User)
+                .WithMany()
+                .HasForeignKey(d => d.ApplicationUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // ✅ Patient -> ApplicationUser
+            modelBuilder.Entity<Patient>()
+                .HasOne(p => p.User)
+                .WithMany()
+                .HasForeignKey(p => p.ApplicationUserId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             // Fix multiple cascade paths
             modelBuilder.Entity<Message>()
@@ -45,13 +58,13 @@ namespace HMS.Data
                 .OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<Case>()
        .HasOne(c => c.Patient)
-       .WithMany()
+       .WithMany(p => p.Cases)
        .HasForeignKey(c => c.PatientId)
        .OnDelete(DeleteBehavior.Restrict); // Or NoAction
 
             modelBuilder.Entity<Case>()
                 .HasOne(c => c.Doctor)
-                .WithMany()
+                .WithMany(d => d.Cases)
                 .HasForeignKey(c => c.DoctorId)
                 .OnDelete(DeleteBehavior.Restrict);
         }

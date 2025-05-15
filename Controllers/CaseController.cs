@@ -56,14 +56,27 @@ namespace HMS.Controllers
         {
             var currentUser = await _userManager.GetUserAsync(User);
 
+            if (currentUser == null || currentUser.Role != "Patient")
+            {
+                return Forbid();
+            }
+
             if (ModelState.IsValid)
             {
-                model.PatientId = currentUser.Id;
                 model.CreatedAt = DateTime.UtcNow;
-                model.Status = Status.Routine; // Default
+                model.Status = Status.Routine;
 
-                // You can handle file saving logic here if needed
-                // Example: Save to disk/cloud, then store file paths
+                // Convert string UserId to int PatientId
+                if (int.TryParse(currentUser.Id, out var patientId))
+                {
+                    model.PatientId = currentUser.Id;
+                }
+                else
+                {
+                    ModelState.AddModelError("", "Invalid user ID.");
+                    model.AvailableCondition = new Case().AvailableCondition;
+                    return View(model);
+                }
 
                 _context.Cases.Add(model);
                 await _context.SaveChangesAsync();
@@ -83,6 +96,7 @@ namespace HMS.Controllers
                 .FirstOrDefaultAsync(c => c.CaseId == id);
 
             var currentUser = await _userManager.GetUserAsync(User);
+
             if (caseData == null || currentUser?.Role != "Doctor")
             {
                 return Forbid(); // Only doctors can edit
@@ -104,7 +118,17 @@ namespace HMS.Controllers
                 return Forbid();
             }
 
-            caseData.DoctorId = currentUser.Id;
+            // Convert string UserId to int DoctorId
+            if (int.TryParse(currentUser.Id, out var doctorId))
+            {
+                caseData.DoctorId = currentUser.Id;
+            }
+            else
+            {
+                ModelState.AddModelError("", "Invalid doctor ID.");
+                return View(caseData);
+            }
+
             caseData.DoctorComments = updated.DoctorComments;
             caseData.PrescribedMedicines = updated.PrescribedMedicines;
             caseData.Status = updated.Status;

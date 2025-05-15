@@ -13,8 +13,9 @@ namespace HMS.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Foreign Key to Patient
+        [ForeignKey("PatientId")]
         public string PatientId { get; set; }
-        public ApplicationUser Patient { get; set; }
+        public Patient Patient { get; set; }
 
         // Medical Report List (stored as text, not uploaded files)
         public List<string> SelectedConditions { get; set; } = new List<string>();
@@ -44,8 +45,10 @@ namespace HMS.Models
         public Status Status { get; set; }
 
         // Foreign Key to Doctor
+        [ForeignKey("DoctorId")]
+
         public string DoctorId { get; set; }
-        public ApplicationUser Doctor { get; set; }
+        public Doctor Doctor { get; set; }
     }
 
     public enum Status
