@@ -42,9 +42,13 @@ namespace HMS.Controllers
 
             var model = new Case
             {
-                PatientId = currentUser.Id,
                 AvailableCondition = new Case().AvailableCondition
             };
+
+            if (int.TryParse(currentUser.Id, out var patientId))
+            {
+                model.PatientId = patientId;
+            }
 
             return View(model);
         }
@@ -69,7 +73,7 @@ namespace HMS.Controllers
                 // Convert string UserId to int PatientId
                 if (int.TryParse(currentUser.Id, out var patientId))
                 {
-                    model.PatientId = currentUser.Id;
+                    model.PatientId = patientId;
                 }
                 else
                 {
@@ -121,7 +125,7 @@ namespace HMS.Controllers
             // Convert string UserId to int DoctorId
             if (int.TryParse(currentUser.Id, out var doctorId))
             {
-                caseData.DoctorId = currentUser.Id;
+                caseData.DoctorId = doctorId;
             }
             else
             {

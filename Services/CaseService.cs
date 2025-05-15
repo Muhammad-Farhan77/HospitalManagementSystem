@@ -25,17 +25,23 @@ namespace HMS.Services
 
         public async Task<List<Case>> GetCasesByDoctorIdAsync(string doctorId)
         {
+            if (!int.TryParse(doctorId, out var doctorIntId))
+                return new List<Case>(); // return empty list if parsing fails
+
             return await _context.Cases
                 .Include(c => c.Patient)
-                .Where(c => c.DoctorId == doctorId)
+                .Where(c => c.DoctorId == doctorIntId)
                 .ToListAsync();
         }
 
         public async Task<List<Case>> GetCasesByPatientIdAsync(string patientId)
         {
+            if (!int.TryParse(patientId, out var patientIntId))
+                return new List<Case>(); // return empty list if parsing fails
+
             return await _context.Cases
                 .Include(c => c.Doctor)
-                .Where(c => c.PatientId == patientId)
+                .Where(c => c.PatientId == patientIntId)
                 .ToListAsync();
         }
 
@@ -65,7 +71,11 @@ namespace HMS.Services
             var caseToUpdate = await _context.Cases.FindAsync(caseId);
             if (caseToUpdate != null)
             {
-                caseToUpdate.DoctorId = doctorId;
+                if (int.TryParse(doctorId, out var doctorIntId))
+                {
+                    caseToUpdate.DoctorId = doctorIntId;
+                }
+
                 caseToUpdate.DoctorComments = comment;
                 caseToUpdate.PrescribedMedicines = prescription;
                 caseToUpdate.Status = status;

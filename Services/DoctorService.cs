@@ -15,18 +15,24 @@ namespace HMS.Services
 
         public async Task<List<Case>> GetCasesByDoctorAsync(string doctorId)
         {
+            if (!int.TryParse(doctorId, out var doctorIntId))
+                return new List<Case>(); // Return empty list if ID is invalid
+
             return await _context.Cases
                 .Include(c => c.Patient)
-                .Where(c => c.DoctorId == doctorId)
+                .Where(c => c.DoctorId == doctorIntId)
                 .ToListAsync();
         }
 
         public async Task<List<Patient>> GetPatientsByDoctorAsync(string doctorId)
         {
+            if (!int.TryParse(doctorId, out var doctorIntId))
+                return new List<Patient>(); // Return empty list if ID is invalid
+
             return await _context.Cases
                 .Include(c => c.Patient)
-                .ThenInclude(p => p.User)
-                .Where(c => c.DoctorId == doctorId)
+                    .ThenInclude(p => p.User)
+                .Where(c => c.DoctorId == doctorIntId)
                 .Select(c => c.Patient)
                 .Distinct()
                 .ToListAsync();

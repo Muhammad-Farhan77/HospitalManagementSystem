@@ -14,7 +14,7 @@ namespace HMS.Models
 
         // Foreign Key to Patient
         [ForeignKey("PatientId")]
-        public string PatientId { get; set; }
+        public int PatientId { get; set; }
         public Patient Patient { get; set; }
 
         // Medical Report List (stored as text, not uploaded files)
@@ -47,7 +47,7 @@ namespace HMS.Models
         // Foreign Key to Doctor
         [ForeignKey("DoctorId")]
 
-        public string DoctorId { get; set; }
+        public int DoctorId { get; set; }
         public Doctor Doctor { get; set; }
     }
 

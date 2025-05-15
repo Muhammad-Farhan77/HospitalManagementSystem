@@ -128,12 +128,15 @@ namespace HMS.Controllers
         // GET: View Cases Based on Specialization
         public async Task<IActionResult> SpecializationCases()
         {
-            var doctor = await _userManager.GetUserAsync(User);
-            if (doctor == null || doctor.Role != "Doctor") return Forbid();
+            var doctorUser = await _userManager.GetUserAsync(User);
+            if (doctorUser == null || doctorUser.Role != "Doctor") return Forbid();
 
-            // Get cases related to the doctor's specialization
+            var doctor = await _context.Doctors.FirstOrDefaultAsync(d => d.ApplicationUserId == doctorUser.Id);
+            if (doctor == null) return NotFound();
+
+            // Get cases where DoctorId matches this doctor
             var cases = await _context.Cases
-                .Where(c => c.DoctorId == doctor.Id)  // Assuming the doctor handles cases for themselves
+                .Where(c => c.DoctorId == doctor.DoctorId)
                 .Include(c => c.Patient)
                 .ToListAsync();
 
@@ -145,16 +148,15 @@ namespace HMS.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> AddDoctorNote(int id, string comment, string prescription, Status status)
         {
-            var doctor = await _userManager.GetUserAsync(User);
-            if (doctor == null || doctor.Role != "Doctor") return Forbid();
+            var doctorUser = await _userManager.GetUserAsync(User);
+            if (doctorUser == null || doctorUser.Role != "Doctor") return Forbid();
 
             var caseToUpdate = await _context.Cases.FindAsync(id);
             if (caseToUpdate != null)
             {
-                // Update the doctor comments and prescribed medicines directly on the Case model
                 caseToUpdate.DoctorComments = comment;
                 caseToUpdate.PrescribedMedicines = prescription;
-                caseToUpdate.Status = status;  // You can also update the status if needed
+                caseToUpdate.Status = status;
                 caseToUpdate.ReportUpdatedAt = DateTime.UtcNow;
 
                 _context.Update(caseToUpdate);

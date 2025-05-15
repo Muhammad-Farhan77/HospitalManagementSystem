@@ -15,9 +15,12 @@ namespace HMS.Services
 
         public async Task<List<Case>> GetCasesByPatientAsync(string patientId)
         {
+            if (!int.TryParse(patientId, out var patientIntId))
+                return new List<Case>(); // Return empty list if conversion fails
+
             return await _context.Cases
                 .Include(c => c.Doctor)
-                .Where(c => c.PatientId == patientId)
+                .Where(c => c.PatientId == patientIntId)
                 .ToListAsync();
         }
 
