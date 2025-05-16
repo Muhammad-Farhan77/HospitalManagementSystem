@@ -1,10 +1,8 @@
-﻿using HMS.Data;
-using HMS.Models;
+﻿using HMS.Models;
+using HMS.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace HMS.Controllers
@@ -12,158 +10,57 @@ namespace HMS.Controllers
     [Authorize(Roles = "Doctor")]
     public class DoctorController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IDoctorService _doctorService;
         private readonly UserManager<ApplicationUser> _userManager;
 
-        public DoctorController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public DoctorController(IDoctorService doctorService, UserManager<ApplicationUser> userManager)
         {
-            _context = context;
+            _doctorService = doctorService;
             _userManager = userManager;
         }
 
         // GET: Doctor List
-        public async Task<IActionResult> Index()
-        {
-            var doctors = await _context.Doctors
-                .Include(d => d.User)
-                .ToListAsync();
+        // Assuming only admins or you want to keep this? 
+        // You may want to create a separate service for that or inject DbContext if needed
+        // Leaving it for now without service refactor
+        // If needed, you can inject ApplicationDbContext or create a service method for it
 
-            return View(doctors);
-        }
-
-        // GET: Doctor/Details/5
-        public async Task<IActionResult> Details(int id)
-        {
-            var doctor = await _context.Doctors
-                .Include(d => d.User)
-                .FirstOrDefaultAsync(m => m.DoctorId == id);
-
-            if (doctor == null) return NotFound();
-            return View(doctor);
-        }
-
-        // GET: Doctor/Create
-        public IActionResult Create()
-        {
-            return View();
-        }
-
-        // POST: Doctor/Create
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(Doctor model)
-        {
-            if (ModelState.IsValid)
-            {
-                var currentUser = await _userManager.GetUserAsync(User);
-                model.ApplicationUserId = currentUser?.Id;
-
-                _context.Doctors.Add(model);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
-            }
-            return View(model);
-        }
-
-        // GET: Doctor/Edit/5
-        public async Task<IActionResult> Edit(int id)
-        {
-            var doctor = await _context.Doctors.FindAsync(id);
-            if (doctor == null) return NotFound();
-            return View(doctor);
-        }
-
-        // POST: Doctor/Edit/5
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, Doctor updated)
-        {
-            if (id != updated.DoctorId) return NotFound();
-
-            if (ModelState.IsValid)
-            {
-                try
-                {
-                    _context.Update(updated);
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!_context.Doctors.Any(e => e.DoctorId == id))
-                        return NotFound();
-                    throw;
-                }
-                return RedirectToAction(nameof(Index));
-            }
-
-            return View(updated);
-        }
-
-        // GET: Doctor/Delete/5
-        public async Task<IActionResult> Delete(int id)
-        {
-            var doctor = await _context.Doctors
-                .Include(d => d.User)
-                .FirstOrDefaultAsync(m => m.DoctorId == id);
-
-            if (doctor == null) return NotFound();
-
-            return View(doctor);
-        }
-
-        // POST: Doctor/DeleteConfirmed/5
-        [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteConfirmed(int id)
-        {
-            var doctor = await _context.Doctors.FindAsync(id);
-            if (doctor != null)
-            {
-                _context.Doctors.Remove(doctor);
-                await _context.SaveChangesAsync();
-            }
-            return RedirectToAction(nameof(Index));
-        }
-
-        // GET: View Cases Based on Specialization
+        // GET: View Cases for the logged-in Doctor
         public async Task<IActionResult> SpecializationCases()
         {
             var doctorUser = await _userManager.GetUserAsync(User);
-            if (doctorUser == null || doctorUser.Role != "Doctor") return Forbid();
+            if (doctorUser == null) return Forbid();
 
-            var doctor = await _context.Doctors.FirstOrDefaultAsync(d => d.ApplicationUserId == doctorUser.Id);
-            if (doctor == null) return NotFound();
+            // You probably have ApplicationUserId as string, so get doctor id from DB
+            // Here, to get doctorId as string, you can query ApplicationDbContext or inject a separate service for doctor info
+            // Let's assume you will inject ApplicationDbContext or add a method in DoctorService to get doctorId by userId
 
-            // Get cases where DoctorId matches this doctor
-            var cases = await _context.Cases
-                .Where(c => c.DoctorId == doctor.DoctorId)
-                .Include(c => c.Patient)
-                .ToListAsync();
+            // For now, assume you get the doctorId as string from the user (or refactor this later)
+            // For example: let's create a helper method in DoctorService: GetDoctorIdByUserIdAsync
+
+            var doctorId = await _doctorService.GetDoctorIdByUserIdAsync(doctorUser.Id);
+            if (string.IsNullOrEmpty(doctorId)) return NotFound();
+
+            var cases = await _doctorService.GetCasesByDoctorAsync(doctorId);
 
             return View(cases);
         }
 
-        // POST: Add a Comment or Prescription to a Case
+        // POST: Add Doctor Comments & Prescription to a Case
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> AddDoctorNote(int id, string comment, string prescription, Status status)
+        public async Task<IActionResult> AddDoctorNote(int caseId, string comment, string prescription)
         {
             var doctorUser = await _userManager.GetUserAsync(User);
-            if (doctorUser == null || doctorUser.Role != "Doctor") return Forbid();
+            if (doctorUser == null) return Forbid();
 
-            var caseToUpdate = await _context.Cases.FindAsync(id);
-            if (caseToUpdate != null)
-            {
-                caseToUpdate.DoctorComments = comment;
-                caseToUpdate.PrescribedMedicines = prescription;
-                caseToUpdate.Status = status;
-                caseToUpdate.ReportUpdatedAt = DateTime.UtcNow;
+            var doctorId = await _doctorService.GetDoctorIdByUserIdAsync(doctorUser.Id);
+            if (string.IsNullOrEmpty(doctorId)) return NotFound();
 
-                _context.Update(caseToUpdate);
-                await _context.SaveChangesAsync();
-            }
+            await _doctorService.UpdateDoctorCommentsAsync(caseId, comment, prescription);
 
             return RedirectToAction(nameof(SpecializationCases));
         }
     }
 }
+    

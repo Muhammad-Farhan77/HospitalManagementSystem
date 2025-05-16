@@ -1,44 +1,38 @@
-﻿using HMS.Data;
-using HMS.Models;
+﻿using HMS.Models;
+using HMS.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using System.Threading.Tasks;
 
 namespace HMS.Controllers
 {
     public class PatientController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IPatientService _patientService;
         private readonly UserManager<ApplicationUser> _userManager;
 
-        public PatientController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public PatientController(IPatientService patientService, UserManager<ApplicationUser> userManager)
         {
-            _context = context;
+            _patientService = patientService;
             _userManager = userManager;
         }
 
-        // GET: List of all patients
+        // GET: List all patients
         public async Task<IActionResult> Index()
         {
-            var patients = await _context.Patients.Include(p => p.User).ToListAsync();
+            var patients = await _patientService.GetAllPatientsAsync();
             return View(patients);
         }
 
-        // GET: Details of a patient
+        // GET: Patient details including cases
         public async Task<IActionResult> Details(int id)
         {
-            var patient = await _context.Patients
-                .Include(p => p.User)
-                .Include(p => p.Cases)
-                .FirstOrDefaultAsync(p => p.PatientId == id);
-
-            if (patient == null)
-                return NotFound();
-
+            var patient = await _patientService.GetPatientDetailsAsync(id);
+            if (patient == null) return NotFound();
             return View(patient);
         }
 
-        // GET: Create new patient (only by Admin/Staff)
+        // GET: Create patient view
         public IActionResult Create()
         {
             return View();
@@ -51,20 +45,17 @@ namespace HMS.Controllers
         {
             if (ModelState.IsValid)
             {
-                _context.Patients.Add(model);
-                await _context.SaveChangesAsync();
+                await _patientService.CreatePatientAsync(model);
                 return RedirectToAction(nameof(Index));
             }
             return View(model);
         }
 
-        // GET: Edit patient
+        // GET: Edit patient view
         public async Task<IActionResult> Edit(int id)
         {
-            var patient = await _context.Patients.FindAsync(id);
-            if (patient == null)
-                return NotFound();
-
+            var patient = await _patientService.GetPatientByIdAsync(id);
+            if (patient == null) return NotFound();
             return View(patient);
         }
 
@@ -73,29 +64,21 @@ namespace HMS.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, Patient model)
         {
-            if (id != model.PatientId)
-                return NotFound();
+            if (id != model.PatientId) return NotFound();
 
             if (ModelState.IsValid)
             {
-                _context.Patients.Update(model);
-                await _context.SaveChangesAsync();
+                await _patientService.UpdatePatientAsync(model);
                 return RedirectToAction(nameof(Index));
             }
-
             return View(model);
         }
 
-        // GET: Delete patient
+        // GET: Delete confirmation view
         public async Task<IActionResult> Delete(int id)
         {
-            var patient = await _context.Patients
-                .Include(p => p.User)
-                .FirstOrDefaultAsync(p => p.PatientId == id);
-
-            if (patient == null)
-                return NotFound();
-
+            var patient = await _patientService.GetPatientByIdAsync(id);
+            if (patient == null) return NotFound();
             return View(patient);
         }
 
@@ -104,14 +87,31 @@ namespace HMS.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var patient = await _context.Patients.FindAsync(id);
-            if (patient != null)
-            {
-                _context.Patients.Remove(patient);
-                await _context.SaveChangesAsync();
-            }
-
+            await _patientService.DeletePatientAsync(id);
             return RedirectToAction(nameof(Index));
+        }
+
+        // Additional: Get cases for a patient by user id
+        public async Task<IActionResult> Cases(string userId)
+        {
+            var cases = await _patientService.GetCasesByPatientAsync(userId);
+            return View(cases);
+        }
+
+        // Additional: Get assigned doctor for a case
+        public async Task<IActionResult> AssignedDoctor(int caseId)
+        {
+            var doctor = await _patientService.GetAssignedDoctorAsync(caseId);
+            if (doctor == null) return NotFound();
+            return View(doctor);
+        }
+
+        // Additional: Get patient profile by user id
+        public async Task<IActionResult> Profile(string userId)
+        {
+            var patient = await _patientService.GetPatientProfileAsync(userId);
+            if (patient == null) return NotFound();
+            return View(patient);
         }
     }
 }

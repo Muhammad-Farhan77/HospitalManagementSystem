@@ -2,16 +2,17 @@
 using HMS.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using System;
 using System.Threading.Tasks;
 
 namespace HMS.Controllers
 {
     public class NotificationController : Controller
     {
-        private readonly NotificationService _notificationService;
+        private readonly INotificationService _notificationService;
         private readonly UserManager<ApplicationUser> _userManager;
 
-        public NotificationController(NotificationService notificationService, UserManager<ApplicationUser> userManager)
+        public NotificationController(INotificationService notificationService, UserManager<ApplicationUser> userManager)
         {
             _notificationService = notificationService;
             _userManager = userManager;

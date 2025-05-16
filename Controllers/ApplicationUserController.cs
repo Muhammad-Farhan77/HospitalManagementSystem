@@ -1,24 +1,25 @@
 ﻿using HMS.Models;
-using Microsoft.AspNetCore.Identity;
+using HMS.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Identity;
+using System;
+using System.Threading.Tasks;
 
 namespace HMS.Controllers
 {
     public class ApplicationUserController : Controller
     {
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly IApplicationUserService _userService;
 
-        public ApplicationUserController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
+        public ApplicationUserController(IApplicationUserService userService)
         {
-            _userManager = userManager;
-            _roleManager = roleManager;
+            _userService = userService;
         }
 
         // GET: /ApplicationUser/
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
-            var users = _userManager.Users.ToList();
+            var users = await _userService.GetAllUsersAsync();
             return View(users);
         }
 
@@ -45,18 +46,9 @@ namespace HMS.Controllers
                     CreatedAt = DateTime.UtcNow
                 };
 
-                var result = await _userManager.CreateAsync(user, password);
+                var result = await _userService.CreateUserAsync(user, password);
                 if (result.Succeeded)
                 {
-                    // Ensure role exists
-                    if (!await _roleManager.RoleExistsAsync(model.Role))
-                    {
-                        await _roleManager.CreateAsync(new IdentityRole(model.Role));
-                    }
-
-                    // Assign to role
-                    await _userManager.AddToRoleAsync(user, model.Role);
-
                     return RedirectToAction(nameof(Index));
                 }
 
@@ -73,7 +65,7 @@ namespace HMS.Controllers
         // GET: /ApplicationUser/Edit/{id}
         public async Task<IActionResult> Edit(string id)
         {
-            var user = await _userManager.FindByIdAsync(id);
+            var user = await _userService.GetUserByIdAsync(id);
             if (user == null) return NotFound();
 
             ViewBag.Roles = Enum.GetNames(typeof(Role));
@@ -85,7 +77,7 @@ namespace HMS.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(string id, ApplicationUser updatedUser)
         {
-            var user = await _userManager.FindByIdAsync(id);
+            var user = await _userService.GetUserByIdAsync(id);
             if (user == null) return NotFound();
 
             user.FullName = updatedUser.FullName;
@@ -93,7 +85,7 @@ namespace HMS.Controllers
             user.UserName = updatedUser.Email;
             user.Role = updatedUser.Role;
 
-            var result = await _userManager.UpdateAsync(user);
+            var result = await _userService.UpdateUserAsync(user);
             if (result.Succeeded)
             {
                 return RedirectToAction(nameof(Index));
@@ -111,7 +103,7 @@ namespace HMS.Controllers
         // GET: /ApplicationUser/Delete/{id}
         public async Task<IActionResult> Delete(string id)
         {
-            var user = await _userManager.FindByIdAsync(id);
+            var user = await _userService.GetUserByIdAsync(id);
             if (user == null) return NotFound();
 
             return View(user);
@@ -122,10 +114,14 @@ namespace HMS.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(string id)
         {
-            var user = await _userManager.FindByIdAsync(id);
-            if (user != null)
+            var result = await _userService.DeleteUserAsync(id);
+
+            if (!result.Succeeded)
             {
-                await _userManager.DeleteAsync(user);
+                // Handle delete errors if needed, e.g. add model state error
+                ModelState.AddModelError("", "Failed to delete user.");
+                var user = await _userService.GetUserByIdAsync(id);
+                return View("Delete", user);
             }
 
             return RedirectToAction(nameof(Index));

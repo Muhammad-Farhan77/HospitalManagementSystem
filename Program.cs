@@ -25,6 +25,8 @@ builder.Services.AddAuthorization(options =>
 
 // Add controllers with views
 builder.Services.AddControllersWithViews();
+
+// Register application services
 builder.Services.AddScoped<IApplicationUserService, ApplicationUserService>();
 builder.Services.AddScoped<ICaseService, CaseService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
@@ -32,6 +34,8 @@ builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IDoctorService, DoctorService>();
 builder.Services.AddScoped<IPatientService, PatientService>();
 
+// Optional: remove if not using RoleService
+builder.Services.AddScoped<RoleService>();
 
 var app = builder.Build();
 
@@ -40,7 +44,7 @@ using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-    await DbInitializer.SeedRoles(roleManager); // Assuming you have the SeedRoles method in your DbInitializer class
+    await DbInitializer.SeedRoles(roleManager);
 }
 
 // Configure the HTTP request pipeline
@@ -59,7 +63,6 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-// Enable authentication and authorization middleware
 app.UseAuthentication();  // Enables authentication middleware
 app.UseAuthorization();   // Enables authorization middleware
 

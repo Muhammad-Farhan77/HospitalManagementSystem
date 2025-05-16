@@ -1,6 +1,9 @@
 ﻿using HMS.Data;
 using HMS.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace HMS.Services
 {
@@ -16,7 +19,7 @@ namespace HMS.Services
         public async Task<List<Case>> GetCasesByDoctorAsync(string doctorId)
         {
             if (!int.TryParse(doctorId, out var doctorIntId))
-                return new List<Case>(); // Return empty list if ID is invalid
+                return new List<Case>();
 
             return await _context.Cases
                 .Include(c => c.Patient)
@@ -27,11 +30,11 @@ namespace HMS.Services
         public async Task<List<Patient>> GetPatientsByDoctorAsync(string doctorId)
         {
             if (!int.TryParse(doctorId, out var doctorIntId))
-                return new List<Patient>(); // Return empty list if ID is invalid
+                return new List<Patient>();
 
             return await _context.Cases
                 .Include(c => c.Patient)
-                    .ThenInclude(p => p.User)
+                .ThenInclude(p => p.User)
                 .Where(c => c.DoctorId == doctorIntId)
                 .Select(c => c.Patient)
                 .Distinct()
@@ -45,9 +48,19 @@ namespace HMS.Services
             {
                 existingCase.DoctorComments = comments;
                 existingCase.PrescribedMedicines = medicines;
-                existingCase.ReportUpdatedAt = DateTime.UtcNow;
+                existingCase.ReportUpdatedAt = System.DateTime.UtcNow;
                 await _context.SaveChangesAsync();
             }
+        }
+
+        // NEW method to get DoctorId string by ApplicationUserId string
+        public async Task<string> GetDoctorIdByUserIdAsync(string userId)
+        {
+            var doctor = await _context.Doctors
+                .AsNoTracking()
+                .FirstOrDefaultAsync(d => d.ApplicationUserId == userId);
+
+            return doctor?.DoctorId.ToString();  // Convert int to string to match your interface
         }
     }
 }

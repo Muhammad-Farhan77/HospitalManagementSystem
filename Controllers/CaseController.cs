@@ -1,185 +1,93 @@
-﻿using HMS.Data;
-using HMS.Models;
+﻿using HMS.Models;
+using HMS.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace HMS.Controllers
 {
-    [Authorize(Roles = "Patient")]
+    [Authorize(Roles = "Doctor")]
     public class CaseController : Controller
     {
-        private readonly ApplicationDbContext _context;
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ICaseService _caseService;
 
-        public CaseController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public CaseController(ICaseService caseService)
         {
-            _context = context;
-            _userManager = userManager;
+            _caseService = caseService;
         }
 
-        // List all cases
+        // GET: Cases assigned to current doctor
         public async Task<IActionResult> Index()
         {
-            var cases = await _context.Cases
-                .Include(c => c.Patient)
-                .Include(c => c.Doctor)
-                .ToListAsync();
-
+            var doctorId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var cases = await _caseService.GetCasesByDoctorIdAsync(doctorId);
             return View(cases);
         }
 
-        // GET: Create new case (only Patient should do this)
-        public async Task<IActionResult> Create()
-        {
-            var currentUser = await _userManager.GetUserAsync(User);
-
-            if (currentUser == null || currentUser.Role != "Patient")
-            {
-                return Forbid(); // Only patients can create cases
-            }
-
-            var model = new Case
-            {
-                AvailableCondition = new Case().AvailableCondition
-            };
-
-            if (int.TryParse(currentUser.Id, out var patientId))
-            {
-                model.PatientId = patientId;
-            }
-
-            return View(model);
-        }
-
-        // POST: Create new case
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(Case model)
-        {
-            var currentUser = await _userManager.GetUserAsync(User);
-
-            if (currentUser == null || currentUser.Role != "Patient")
-            {
-                return Forbid();
-            }
-
-            if (ModelState.IsValid)
-            {
-                model.CreatedAt = DateTime.UtcNow;
-                model.Status = Status.Routine;
-
-                // Convert string UserId to int PatientId
-                if (int.TryParse(currentUser.Id, out var patientId))
-                {
-                    model.PatientId = patientId;
-                }
-                else
-                {
-                    ModelState.AddModelError("", "Invalid user ID.");
-                    model.AvailableCondition = new Case().AvailableCondition;
-                    return View(model);
-                }
-
-                _context.Cases.Add(model);
-                await _context.SaveChangesAsync();
-
-                return RedirectToAction(nameof(Index));
-            }
-
-            model.AvailableCondition = new Case().AvailableCondition;
-            return View(model);
-        }
-
-        // GET: Edit case (Doctor only)
-        public async Task<IActionResult> Edit(int id)
-        {
-            var caseData = await _context.Cases
-                .Include(c => c.Patient)
-                .FirstOrDefaultAsync(c => c.CaseId == id);
-
-            var currentUser = await _userManager.GetUserAsync(User);
-
-            if (caseData == null || currentUser?.Role != "Doctor")
-            {
-                return Forbid(); // Only doctors can edit
-            }
-
-            return View(caseData);
-        }
-
-        // POST: Edit case by doctor (add comments, prescriptions, etc.)
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, Case updated)
-        {
-            var caseData = await _context.Cases.FindAsync(id);
-            var currentUser = await _userManager.GetUserAsync(User);
-
-            if (caseData == null || currentUser?.Role != "Doctor")
-            {
-                return Forbid();
-            }
-
-            // Convert string UserId to int DoctorId
-            if (int.TryParse(currentUser.Id, out var doctorId))
-            {
-                caseData.DoctorId = doctorId;
-            }
-            else
-            {
-                ModelState.AddModelError("", "Invalid doctor ID.");
-                return View(caseData);
-            }
-
-            caseData.DoctorComments = updated.DoctorComments;
-            caseData.PrescribedMedicines = updated.PrescribedMedicines;
-            caseData.Status = updated.Status;
-            caseData.ReportUpdatedAt = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-
-            return RedirectToAction(nameof(Index));
-        }
-
-        // GET: Details
+        // GET: Case Details
         public async Task<IActionResult> Details(int id)
         {
-            var caseDetails = await _context.Cases
-                .Include(c => c.Patient)
-                .Include(c => c.Doctor)
-                .FirstOrDefaultAsync(c => c.CaseId == id);
-
-            if (caseDetails == null) return NotFound();
+            var caseDetails = await _caseService.GetCaseByIdAsync(id);
+            if (caseDetails == null)
+                return NotFound();
 
             return View(caseDetails);
         }
 
-        // GET: Delete
-        public async Task<IActionResult> Delete(int id)
+        // GET: Create Case (for admin or general purpose if needed)
+        [Authorize(Roles = "Admin")]
+        public IActionResult Create()
         {
-            var caseToDelete = await _context.Cases
-                .Include(c => c.Patient)
-                .FirstOrDefaultAsync(c => c.CaseId == id);
-
-            if (caseToDelete == null) return NotFound();
-
-            return View(caseToDelete);
+            return View();
         }
 
-        // POST: Confirm Delete
-        [HttpPost, ActionName("Delete")]
+        // POST: Create Case
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteConfirmed(int id)
+        public async Task<IActionResult> Create(Case model)
         {
-            var caseData = await _context.Cases.FindAsync(id);
-            if (caseData != null)
+            if (ModelState.IsValid)
             {
-                _context.Cases.Remove(caseData);
-                await _context.SaveChangesAsync();
+                await _caseService.CreateCaseAsync(model);
+                return RedirectToAction(nameof(Index));
             }
 
+            return View(model);
+        }
+
+        // GET: Edit Case
+        public async Task<IActionResult> Edit(int id)
+        {
+            var caseToEdit = await _caseService.GetCaseByIdAsync(id);
+            if (caseToEdit == null)
+                return NotFound();
+
+            return View(caseToEdit);
+        }
+
+        // POST: Edit Case
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(Case updatedCase)
+        {
+            if (ModelState.IsValid)
+            {
+                await _caseService.EditCaseAsync(updatedCase);
+                return RedirectToAction(nameof(Index));
+            }
+
+            return View(updatedCase);
+        }
+
+        // POST: Add Doctor's Note
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddDoctorNote(int id, string comment, string prescription, Status status)
+        {
+            var doctorId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            await _caseService.AddDoctorCommentAsync(id, doctorId, comment, prescription, status);
             return RedirectToAction(nameof(Index));
         }
     }

@@ -1,19 +1,20 @@
-﻿using HMS.Data;
-using HMS.Models;
-using Microsoft.AspNetCore.Identity;
+﻿using HMS.Models;
+using HMS.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
+using System;
+using System.Threading.Tasks;
 
 namespace HMS.Controllers
 {
     public class MessageController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IMessageService _messageService;
         private readonly UserManager<ApplicationUser> _userManager;
 
-        public MessageController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public MessageController(IMessageService messageService, UserManager<ApplicationUser> userManager)
         {
-            _context = context;
+            _messageService = messageService;
             _userManager = userManager;
         }
 
@@ -21,9 +22,9 @@ namespace HMS.Controllers
         public async Task<IActionResult> Users()
         {
             var currentUser = await _userManager.GetUserAsync(User);
-            var users = await _context.Users
-                .Where(u => u.Id != currentUser.Id)
-                .ToListAsync();
+            if (currentUser == null) return Unauthorized();
+
+            var users = await _messageService.GetChatUsersAsync(currentUser.Id);
 
             return View(users); // View should show a list of users to start chat with
         }
@@ -32,18 +33,14 @@ namespace HMS.Controllers
         public async Task<IActionResult> Chat(string userId)
         {
             var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null) return Unauthorized();
 
             if (string.IsNullOrEmpty(userId)) return BadRequest();
 
+            var messages = await _messageService.GetChatMessagesAsync(currentUser.Id, userId);
+
             var otherUser = await _userManager.FindByIdAsync(userId);
             if (otherUser == null) return NotFound();
-
-            var messages = await _context.Messages
-                .Where(m =>
-                    (m.SenderId == currentUser.Id && m.ReceiverId == userId) ||
-                    (m.SenderId == userId && m.ReceiverId == currentUser.Id))
-                .OrderBy(m => m.SentAt)
-                .ToListAsync();
 
             ViewBag.OtherUser = otherUser;
             ViewBag.CurrentUserId = currentUser.Id;
@@ -56,20 +53,12 @@ namespace HMS.Controllers
         public async Task<IActionResult> SendMessage(string receiverId, string content)
         {
             var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null) return Unauthorized();
 
             if (string.IsNullOrWhiteSpace(content) || string.IsNullOrWhiteSpace(receiverId))
                 return BadRequest("Message or receiver ID cannot be empty.");
 
-            var message = new Message
-            {
-                Content = content,
-                SenderId = currentUser.Id,
-                ReceiverId = receiverId,
-                SentAt = DateTime.UtcNow
-            };
-
-            _context.Messages.Add(message);
-            await _context.SaveChangesAsync();
+            await _messageService.SendMessageAsync(currentUser.Id, receiverId, content);
 
             return RedirectToAction("Chat", new { userId = receiverId });
         }
