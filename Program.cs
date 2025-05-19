@@ -68,6 +68,6 @@ app.UseAuthorization();   // Enables authorization middleware
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
+    pattern: "{controller=Patient}/{action=Dashboard}/{id?}");
 
 app.Run();

@@ -1,11 +1,13 @@
 ﻿using HMS.Models;
 using HMS.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 
 namespace HMS.Controllers
 {
+    [Authorize(Roles = "Patient")]
     public class PatientController : Controller
     {
         private readonly IPatientService _patientService;
@@ -113,5 +115,22 @@ namespace HMS.Controllers
             if (patient == null) return NotFound();
             return View(patient);
         }
+        // GET: Patient Dashboard
+public async Task<IActionResult> Dashboard()
+{
+    var user = await _userManager.GetUserAsync(User);
+    var patient = await _patientService.GetPatientProfileAsync(user.Id);
+
+    var cases = await _patientService.GetCasesByPatientAsync(user.Id);
+    var totalReports = cases.Count;
+    var underReview = cases.Count(c => c.Status == Status.Critical || c.Status == Status.Routine);
+
+    ViewBag.TotalCases = cases.Count;
+    ViewBag.TotalReports = totalReports;
+    ViewBag.UnderReview = underReview;
+
+    return View("Dashboard", patient); // 👈 make sure it points to Views/Patient/Dashboard.cshtml
+}
+
     }
 }
